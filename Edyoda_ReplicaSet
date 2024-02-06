@@ -1,99 +1,131 @@
-Write a common use-case, where you will use a daemon set instead of replica set.
+You have deployed an application, that is listening at port 8000. You used a replica-set to deploy it and created a NodePort service to make it accessible. But when you test it, somehow the application is not reachable at the port. Write down your approach and sequentially all the steps that you will take to find out the issue.
 
-DaemonSets is used when a single copy of application must run on all or a subset of the nodes in the cluster, Like CPU or Memory usage monitoring of nodes.
-
-[root@ip-172-31-43-58 04-controllers]# pwd
-/root/kubernetes-training/04-controllers
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]# ls -lrth
-total 44K
--rw-r--r-- 1 root root 280 Jan 19 07:43 time-limited-batch-job.yaml
-drwxr-xr-x 2 root root  24 Jan 19 07:43 ssd-monitor
--rw-r--r-- 1 root root 290 Jan 19 07:43 multi-completion-parallel-batch-job.yaml
--rw-r--r-- 1 root root 273 Jan 19 07:43 multi-completion-batch-job.yaml
-drwxr-xr-x 2 root root  38 Jan 19 07:43 kubia-unhealthy
--rw-r--r-- 1 root root 266 Jan 19 07:43 kubia-replicaset.yaml
--rw-r--r-- 1 root root 325 Jan 19 07:43 kubia-replicaset-matchexpressions.yaml
--rw-r--r-- 1 root root 294 Jan 19 07:43 kubia-rc.yaml
--rw-r--r-- 1 root root 197 Jan 19 07:43 kubia-liveness-probe.yaml
--rw-r--r-- 1 root root 227 Jan 19 07:43 kubia-liveness-probe-initial-delay.yaml
--rw-r--r-- 1 root root 371 Jan 19 07:43 cronjob.yaml
--rw-r--r-- 1 root root 239 Jan 19 07:43 batch-job.yaml
-drwxr-xr-x 2 root root  24 Jan 19 07:43 batch-job
--rw-r--r-- 1 root root 308 Jan 31 08:42 ssd-monitor-daemonset.yaml
-[root@ip-172-31-43-58 04-controllers]# cat ssd-monitor-daemonset.yaml
+[root@ip-172-31-43-58 05-services]# pwd
+/root/kubernetes-training/05-services
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]# ls -lrth
+total 72K
+-rw-r--r-- 1 root root 1.7K Jan 19 07:43 tls.key
+-rw-r--r-- 1 root root 1.1K Jan 19 07:43 tls.cert
+-rw-r--r-- 1 root root  156 Jan 19 07:43 kubia-svc.yaml
+-rw-r--r-- 1 root root  167 Jan 19 07:43 kubia-svc-publish-not-ready.yaml
+-rw-r--r-- 1 root root  176 Jan 19 07:43 kubia-svc-nodeport.yaml
+-rw-r--r-- 1 root root  217 Jan 19 07:43 kubia-svc-nodeport-onlylocal.yaml
+-rw-r--r-- 1 root root  196 Jan 19 07:43 kubia-svc-named-ports.yaml
+-rw-r--r-- 1 root root  164 Jan 19 07:43 kubia-svc-loadbalancer.yaml
+-rw-r--r-- 1 root root  157 Jan 19 07:43 kubia-svc-headless.yaml
+-rw-r--r-- 1 root root  158 Jan 19 07:43 kubia-svc-client-ip-session-affinity.yaml
+-rw-r--r-- 1 root root  261 Jan 19 07:43 kubia-replicaset.yaml
+-rw-r--r-- 1 root root  418 Jan 19 07:43 kubia-rc-readinessprobe.yaml
+-rw-r--r-- 1 root root  194 Jan 19 07:43 kubia-pod.yml
+-rw-r--r-- 1 root root  232 Jan 19 07:43 kubia-ingress.yaml
+-rw-r--r-- 1 root root  302 Jan 19 07:43 kubia-ingress-tls.yaml
+drwxr-xr-x 2 root root   96 Jan 19 07:43 ingress
+-rw-r--r-- 1 root root   93 Jan 19 07:43 external-service.yaml
+-rw-r--r-- 1 root root  149 Jan 19 07:43 external-service-externalname.yaml
+-rw-r--r-- 1 root root  161 Jan 19 07:43 external-service-endpoints.yaml
+[root@ip-172-31-43-58 05-services]# cat kubia-replicaset.yaml
 apiVersion: apps/v1
-kind: DaemonSet
+kind: ReplicaSet
 metadata:
-  name: ssd-monitor
+  name: kubia
 spec:
+  replicas: 3
   selector:
     matchLabels:
-      app: ssd-monitor
+      app: kubia
   template:
     metadata:
       labels:
-        app: ssd-monitor
+        app: kubia
     spec:
-      nodeSelector:
-        disk: ssd
       containers:
-      - name: main
-        image: luksa/ssd-monitor
+      - name: kubia
+        image: luksa/kubia
+[root@ip-172-31-43-58 05-services]# kubectl apply -f kubia-replicaset.yaml
+replicaset.apps/kubia created
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]# kubectl get pod
+NAME          READY   STATUS              RESTARTS   AGE
+kubia-425vf   0/1     ContainerCreating   0          4s
+kubia-f47bm   0/1     ContainerCreating   0          4s
+kubia-pct6f   1/1     Running             0          4s
+[root@ip-172-31-43-58 05-services]# kubectl get pod
+NAME          READY   STATUS              RESTARTS   AGE
+kubia-425vf   0/1     ContainerCreating   0          7s
+kubia-f47bm   1/1     Running             0          7s
+kubia-pct6f   1/1     Running             0          7s
+[root@ip-172-31-43-58 05-services]# kubectl get pod
+NAME          READY   STATUS    RESTARTS   AGE
+kubia-425vf   1/1     Running   0          9s
+kubia-f47bm   1/1     Running   0          9s
+kubia-pct6f   1/1     Running   0          9s
+[root@ip-172-31-43-58 05-services]# kubectl get pod -o wide
+NAME          READY   STATUS    RESTARTS   AGE   IP                NODE                                              NOMINATED NODE   READINESS GATES
+kubia-425vf   1/1     Running   0          13s   192.168.236.100   ip-172-31-43-58.ap-southeast-1.compute.internal   <none>           <none>
+kubia-f47bm   1/1     Running   0          13s   192.168.236.99    ip-172-31-43-58.ap-southeast-1.compute.internal   <none>           <none>
+kubia-pct6f   1/1     Running   0          13s   192.168.236.98    ip-172-31-43-58.ap-southeast-1.compute.internal   <none>           <none>
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]# curl 192.168.236.100:8080
+You've hit kubia-425vf
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]# curl 0.0.0.0:8080
+curl: (7) Failed to connect to 0.0.0.0 port 8080 after 0 ms: Couldn't connect to server
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]# cat kubia-svc-nodeport.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubia-nodeport
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 8080
+    nodePort: 30123
+  selector:
+    app: kubia
 
-[root@ip-172-31-43-58 04-controllers]# kubectl apply -f ssd-monitor-daemonset.yaml
-daemonset.apps/ssd-monitor created
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]# kubectl get ds
-NAME          DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
-ssd-monitor   0         0         0       0            0           disk=ssd        3s
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]# kubectl get pods
-No resources found in default namespace.
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]# kubectl get nodes -o wide
-NAME                                               STATUS   ROLES    AGE   VERSION   INTERNAL-IP     EXTERNAL-IP   OS-IMAGE         KERNEL-VERSION                  CONTAINER-RUNTIME
-ip-172-31-43-183.ap-southeast-1.compute.internal   Ready    master   12d   v1.18.5   172.31.43.183   <none>        Amazon Linux 2   5.10.205-195.804.amzn2.x86_64   docker://20.10.25
-ip-172-31-43-58.ap-southeast-1.compute.internal    Ready    <none>   12d   v1.18.5   172.31.43.58    <none>        Amazon Linux 2   5.10.205-195.804.amzn2.x86_64   docker://20.10.25
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]# kubectl get nodes --show-labels
-NAME                                               STATUS   ROLES    AGE   VERSION   LABELS
-ip-172-31-43-183.ap-southeast-1.compute.internal   Ready    master   12d   v1.18.5   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=ip-172-31-43-183.ap-southeast-1.compute.internal,kubernetes.io/os=linux,node-role.kubernetes.io/master=
-ip-172-31-43-58.ap-southeast-1.compute.internal    Ready    <none>   12d   v1.18.5   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=ip-172-31-43-58.ap-southeast-1.compute.internal,kubernetes.io/os=linux
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]# kubectl label nodes ip-172-31-43-58.ap-southeast-1.compute.internal disk=ssd
-node/ip-172-31-43-58.ap-southeast-1.compute.internal labeled
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]# kubectl get ds
-NAME          DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
-ssd-monitor   1         1         1       1            1           disk=ssd        61s
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]# kubectl get pods
-NAME                READY   STATUS    RESTARTS   AGE
-ssd-monitor-6zj4f   1/1     Running   0          10s
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]# kubectl get nodes --show-labels
-NAME                                               STATUS   ROLES    AGE   VERSION   LABELS
-ip-172-31-43-183.ap-southeast-1.compute.internal   Ready    master   12d   v1.18.5   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=ip-172-31-43-183.ap-southeast-1.compute.internal,kubernetes.io/os=linux,node-role.kubernetes.io/master=
-ip-172-31-43-58.ap-southeast-1.compute.internal    Ready    <none>   12d   v1.18.5   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,disk=ssd,kubernetes.io/arch=amd64,kubernetes.io/hostname=ip-172-31-43-58.ap-southeast-1.compute.internal,kubernetes.io/os=linux
-[root@ip-172-31-43-58 04-controllers]# kubectl get nodes --show-labels
-NAME                                               STATUS   ROLES    AGE   VERSION   LABELS
-ip-172-31-43-183.ap-southeast-1.compute.internal   Ready    master   12d   v1.18.5   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=ip-172-31-43-183.ap-southeast-1.compute.internal,kubernetes.io/os=linux,node-role.kubernetes.io/master=
-ip-172-31-43-58.ap-southeast-1.compute.internal    Ready    <none>   12d   v1.18.5   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,disk=ssd,kubernetes.io/arch=amd64,kubernetes.io/hostname=ip-172-31-43-58.ap-southeast-1.compute.internal,kubernetes.io/os=linux
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
-[root@ip-172-31-43-58 04-controllers]#
+[root@ip-172-31-43-58 05-services]# kubectl apply -f kubia-svc-nodeport.yaml
+service/kubia-nodeport created
+[root@ip-172-31-43-58 05-services]# kubectl get svc
+NAME             TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+kubernetes       ClusterIP   10.96.0.1        <none>        443/TCP        3m32s
+kubia-nodeport   NodePort    10.100.197.131   <none>        80:30123/TCP   7s
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]# kubectl get ep
+NAME             ENDPOINTS                                                      AGE
+kubernetes       172.31.43.183:6443                                             3m40s
+kubia-nodeport   192.168.236.100:8080,192.168.236.98:8080,192.168.236.99:8080   15s
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]# curl 13.229.109.160:30123
+You've hit kubia-425vf
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]#
+[root@ip-172-31-43-58 05-services]# curl 13.229.109.160:30123
+You've hit kubia-f47bm
+[root@ip-172-31-43-58 05-services]# curl 13.229.109.160:30123
+You've hit kubia-pct6f
+[root@ip-172-31-43-58 05-services]# kubectl get pod
+NAME          READY   STATUS    RESTARTS   AGE
+kubia-425vf   1/1     Running   0          2m38s
+kubia-f47bm   1/1     Running   0          2m38s
+kubia-pct6f   1/1     Running   0          2m38s
+[root@ip-172-31-43-58 05-services]# curl 10.100.197.131:8080
+^C
+[root@ip-172-31-43-58 05-services]# ^C
+[root@ip-172-31-43-58 05-services]# ^C
+[root@ip-172-31-43-58 05-services]# curl 10.100.197.131:80
+You've hit kubia-f47bm
+[root@ip-172-31-43-58 05-services]#
